@@ -7,35 +7,64 @@
 
 import SwiftUI
 
-struct Topic : Hashable{
-    let name: String
-    let description: String
-    let id = UUID()
+struct Quiz : Codable, Hashable{
+    let title: String
+    let desc: String
+    let questions: [Question]
 }
 
+struct Question : Codable, Hashable{
+    let text: String
+    let answer: String
+    let answers: [String]
+}
+
+
 struct ContentView: View {
-    let topics = [Topic(name: "Science!", description: "Because SCIENCE!"),Topic(name: "Mathematics", description: "Did you pass the third grade?"),Topic(name: "Marvel Super Heroes", description: "Avengers, Assemble!")]
+    @State var quizzes: [Quiz] = []
+    @State var flag = false
+    private var url = "https://tednewardsandbox.site44.com/questions.json"
+    
+    func fetchData(url: String) {
+        guard let url = URL(string: url) else { return }
+
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            guard let data = data else { return }
+            do {
+                let quizzes = try JSONDecoder().decode([Quiz].self, from: data)
+                DispatchQueue.main.async {
+                    self.quizzes = quizzes
+                }
+            } catch {
+                print(String(describing: error))
+            }
+        }.resume()
+    }
+    
+    
     var body: some View {
         VStack {
             NavigationStack {
-                List(topics, id: \.self) { topic in
+                List(quizzes, id: \.self) { quiz in
                     NavigationLink{
-                        questionView()
+                        questionView(quiz: quiz, index: 0, correctAnswer: 0, questionsAnswered: 0)
                     } label: {
                         VStack(alignment: .leading){
-                            Label(topic.name, systemImage: "folder")
-                            Text(topic.description)
+                            Label(quiz.title, systemImage: "folder")
+                            Text(quiz.desc)
                         }
                     }
                 }
                 .toolbar {
-                    ToolbarItem(placement:
-                        .topBarTrailing) {
-                        Button("Settings") {
-                            print("Settings clicked")
-                        }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink("Settings", destination: settingsView(quizzes: $quizzes))
                     }
                 }
+            }
+            .onAppear {
+                guard !flag else{return}
+                flag = true
+                fetchData(url: url)
             }
         }
     }
